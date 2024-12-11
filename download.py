@@ -16,8 +16,8 @@ if __name__ == '__main__':
     print(client.dashboard_link)
 
 
-username = 'paulinkenbrandt'
-password = 'E@rthIsAw3some!'
+username = 'username'
+password = 'password'
 
 # add data folder here 
 folder = sys.argv[1]

@@ -26,7 +26,7 @@ conda create --name prep_hyp3 --file download_hyp3_dependencies.txt
 
 ## Usage
 To run, use the following commands:  <br>
-1.  <br>
+1a.  <br>
 ```bash
 ./submit.py job_name max_temp_base_days submit_true [filter_strength]
 ```
@@ -37,6 +37,20 @@ where: <br>
 ```submit_true```: True to submit job; False to only create text file with pair names <br>
 ```filter_strength``` : interferogram filter strength <br>
  <br>
+
+ 1b.  <br>
+ ```bash
+./submit_gaps.py ref_scene_ID sec_scene_ID job_name [filter_strength]
+```
+
+where: <br>
+```ref_Scene_ID``` : Reference scene ID <br>
+```sec_Scene_ID``` : Secondary scene ID   <br>
+```job_name```: HyP3 job name <br>
+```filter_strength``` : interferogram filter strength <br>
+ <br>
+
+
  2.  <br>
 ```bash
 ./download.py  data_folder job_name
