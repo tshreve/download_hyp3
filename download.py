@@ -35,4 +35,5 @@ jname = sys.argv[2]
 
 # download zip files to chosen folder
 job = hyp3.find_jobs(name=jname)
+#job = hyp3.watch(job)
 insar_products = job.download_files(folder)
