@@ -4,17 +4,24 @@ import hyp3_sdk as sdk
 from pathlib import Path
 import dask
 from dask.distributed import Client, progress
+import sys 
 
-
+# update number of workers and threads based on CPUs available
+# more than 1 worker makes things chaotic due to automatic deletion of zip files
 if __name__ == '__main__':
-    #! Chaotic because zip file is deleted after unzipped, some workesr can't recognize this?
+    if len(sys.argv) < 2:
+        print("Usage: unzip.py data_folder")
+        sys.exit(1)
+
     client = Client(threads_per_worker=2, n_workers=1)
     print(client.dashboard_link)
 
+# choose output folder
 results = []
-folder = '/home/tshreve/sar/mintpy/hyp3/p129_merged/data_asf'
+folder = sys.argv[1]
 data_dir=Path(folder)
 
+# unzip files in parallel using dask
 for ii in data_dir.glob('*.zip'):
     print(ii)
     try:

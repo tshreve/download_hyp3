@@ -1,30 +1,44 @@
+#!/usr/bin/env python3
+
 from pathlib import Path
 import numpy as np
 from copy import deepcopy
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import asf_search as asf
+from hyp3_sdk import HyP3
+import sys
 
-folder = '/content/mnt/MyDrive/SAR/Backup/p100/data_1202'#'/content/mnt/MyDrive/SAR/Backup/milford_2014_2021/data'
-data_dir=Path(folder)
+if __name__ == '__main__':
+    if len(sys.argv) < 4:
+        print("Usage: submit.py job_name max_temp_base_days submit_true [filter_strength]")
+        sys.exit(1)
+    elif len(sys.argv) == 4:
+        filt = 0.4
+    elif len(sys.argv) == 5: 
+        filt = float(sys.argv[4])
+  
 
-jname = 'p100_2022_2024_north_gaps'
+months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+# define job parameters
+jname = sys.argv[1] #p93_desc_2014_2017
+
 job_specification = {
-    "job_parameters": {'apply_water_mask': True, 'include_dem': True, 'include_displacement_maps': False, 'include_inc_map': True, 'include_look_vectors': True, 'include_los_displacement': False, 'include_wrapped_phase': True, 'looks': '20x4', 'phase_filter_parameter': 0.4},
+    "job_parameters": {'apply_water_mask': True, 'include_dem': True, 'include_displacement_maps': False, 'include_inc_map': True, 'include_look_vectors': True, 'include_los_displacement': False, 'include_wrapped_phase': True, 'looks': '20x4', 'phase_filter_parameter': filt},
     "job_type": "INSAR_GAMMA",
     "name": jname,
 }
 
-#Download pairs from scene IDs
-
-import asf_search as asf
-
+# search images available (seasonal search)
 options = {
-	'intersectsWith': 'POLYGON((-109.3264 37.1596,-108.8806 37.1596,-108.8806 40.2389,-109.3264 40.2389,-109.3264 37.1596))',
+	'intersectsWith': 'POLYGON((-113.8789 37.5667,-113.4477 37.5667,-113.4477 37.9314,-113.8789 37.9314,-113.8789 37.5667))',
 	'dataset': 'SENTINEL-1',
-	'start': '2022-05-01T06:00:00Z',
-	'end': '2024-12-02T05:59:59Z',
-	'relativeOrbit': 129,
+	'start': '2017-03-11T06:00:00Z',
+	'end': '2024-12-11T06:59:59Z',
+	'relativeOrbit': 93,
 	'processingLevel': 'SLC',
+	'flightDirection': 'Ascending',
 	'season': [
 		'121',
 		'335'
@@ -32,60 +46,55 @@ options = {
 	'maxResults': 250
 }
 
+# search for scenes
 results = asf.search(**options)
 print(len(results))
 
-
+# prepare job list
 jobs = []
-
 job = deepcopy(job_specification)
 
-perpt_max = 40
-perpt_max_yrlong = 55
-
+# set temporal baseline constraints for nearest neighbor and year-long interferograms
+perpt_max = int(sys.argv[2])
+perpt_max_yrlong = 43
 results_r = results[::-1]
 
-for c, ref in enumerate(results_r):
-  start = datetime.strptime(ref.properties['startTime'],'%Y-%m-%dT%H:%M:%SZ')
-  stacks = ref.stack()
-  day = (12 - (start.month - 8))*30
-  print(start.month)
-  print(day)
-  for d, sec in enumerate(stacks):
-    start_sec = datetime.strptime(sec.properties['startTime'],'%Y-%m-%dT%H:%M:%SZ')
-    #same-year intfs
-    if sec.properties['temporalBaseline'] > 0 and sec.properties['temporalBaseline'] < perpt_max: #and start_sec < datetime.strptime('2022-07-10T00:00:00Z','%Y-%m-%dT%H:%M:%SZ'):
-      print(ref.properties['sceneName'])
-      print(sec.properties['sceneName'])
-      print(sec.properties['temporalBaseline'])
-      job = deepcopy(job_specification)
-      job['job_parameters']['granules'] = [ref.properties['sceneName'], sec.properties['sceneName']]
-      jobs.append(job)
-    #year-long intfs
-    if start.month > 7 and start.month < 11:
-      if sec.properties['temporalBaseline'] > day and sec.properties['temporalBaseline'] < (day + perpt_max_yrlong):
-        print(ref.properties['sceneName'])
-        print(sec.properties['sceneName'])
-        print(sec.properties['temporalBaseline'])
+# find pairs for each scene (nearest neighbor and year-long pairs) and write pairs and temporal baselines to file for double-checking
+with open(f'{jname}_pairs.txt', 'w') as file:
+  for c, ref in enumerate(results_r):
+    start = datetime.strptime(ref.properties['startTime'],'%Y-%m-%dT%H:%M:%SZ')
+    stacks = ref.stack()
+    day = (12 - (start.month - 8))*30
+    file.write(f"Month is {months[start.month-1]} \n")
+    file.write(f"Julian day is {day}\n")
+    for d, sec in enumerate(stacks):
+      start_sec = datetime.strptime(sec.properties['startTime'],'%Y-%m-%dT%H:%M:%SZ')
+      # same-year intfs
+      if sec.properties['temporalBaseline'] > 0 and sec.properties['temporalBaseline'] < perpt_max: #and start_sec < datetime.strptime('2022-07-10T00:00:00Z','%Y-%m-%dT%H:%M:%SZ'):
+        file.write(ref.properties['sceneName']+' \n')
+        file.write(sec.properties['sceneName']+' \n')
+        file.write(str(sec.properties['temporalBaseline'])+' \n')
         job = deepcopy(job_specification)
         job['job_parameters']['granules'] = [ref.properties['sceneName'], sec.properties['sceneName']]
         jobs.append(job)
+      # year-long intfs
+      if start.month > 7 and start.month < 11:
+        if sec.properties['temporalBaseline'] > day and sec.properties['temporalBaseline'] < (day + perpt_max_yrlong):
+          file.write(ref.properties['sceneName']+' \n')
+          file.write(sec.properties['sceneName']+' \n')
+          file.write(str(sec.properties['temporalBaseline'])+' \n')
+          job = deepcopy(job_specification)
+          job['job_parameters']['granules'] = [ref.properties['sceneName'], sec.properties['sceneName']]
+          jobs.append(job)
 
+# submit all jobs
 print(f'{len(jobs)} jobs')
+if sys.argv[3] == 'True':
+  hyp3 = HyP3(prompt=True)
 
-hyp3 = HyP3(prompt=True)
-
-hyp3.submit_prepared_jobs(jobs)
-
-
-hyp3 = HyP3(prompt=True)
-
-jobs = []
-
-job = deepcopy(job_specification)
-job['job_parameters']['granules'] = ["S1A_IW_SLC__1SDV_20220620T133353_20220620T133421_043747_05391A_53CD", "S1A_IW_SLC__1SDV_20220807T133413_20220807T133440_044447_054DDC_D4F8"]
-jobs.append(job)
-
-print(f'Submitting {len(jobs)} jobs')
-
-hyp3.submit_prepared_jobs(jobs)
+  # May need to split up job submission if too many jobs
+  # Could add a try/except statement to catch errors
+  hyp3.submit_prepared_jobs(jobs[0:100])
+  #hyp3.submit_prepared_jobs(jobs[101:200])
+  #hyp3.submit_prepared_jobs(jobs[201:300])
+  #hyp3.submit_prepared_jobs(jobs[301:400])
