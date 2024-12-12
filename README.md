@@ -17,7 +17,7 @@ git clone https://github.com/tshreve/download_hyp3.git
 echo 'dask
 hyp3_sdk
 asf_search
-numpy' > download_hyp3_dependencies
+numpy' > download_hyp3_dependencies.txt
  ```
 
 ```bash
