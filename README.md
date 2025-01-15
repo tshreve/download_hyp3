@@ -17,7 +17,7 @@ git clone https://github.com/tshreve/download_hyp3.git
 echo 'dask
 hyp3_sdk
 asf_search
-numpy' > download_hyp3_dependencies
+numpy' > download_hyp3_dependencies.txt
  ```
 
 ```bash
@@ -79,6 +79,4 @@ Contributions are encouraged! I will do my best to continue updating this script
 
 Ideas for increased functionality are also welcome. Thanks to all who are helping to make InSAR more accessible!
 
-## License
-This project was funded by the Utah Geological Survey, and I am still figuring out licensing.
 
