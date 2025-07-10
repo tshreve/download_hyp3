@@ -50,6 +50,28 @@ where: <br>
 ```filter_strength``` : interferogram filter strength <br>
  <br>
 
+______ <br>
+OR <br>
+______ <br>
+
+To submit individual bursts, use: <br>
+ ```bash
+./submit_burst.py job_name max_temp_base_days submit_true seasonal_true
+```
+
+To submit area spanning multiple bursts (up to 15 bursts can be stitched together using ```hyp3_sdk```'s ```submit_insar_isce_multi_burst_job```), use: <br>
+ ```bash
+./submit_multiburst.py job_name max_temp_base_days submit_true seasonal_true
+```
+
+where: <br>
+```job_name``` : HyP3 job name <br>
+```max_temp_base_days``` : maximum temporal baseline for nearest neighbor pairs  <br>
+```submit_true```: True to submit job; False to only create text file with pair names <br>
+```seasonal_true``` : True to include year-long interferograms; False to only include nearest neighbor interferograms <br>
+ <br>
+
+
 
  2.  <br>
 ```bash
