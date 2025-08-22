@@ -61,7 +61,7 @@ To submit individual bursts, use: <br>
 
 To submit area spanning multiple bursts (up to 15 bursts can be stitched together using ```hyp3_sdk```'s ```submit_insar_isce_multi_burst_job```), use: <br>
  ```bash
-./submit_multiburst.py job_name max_temp_base_days submit_true seasonal_true
+./submit_multiburst.py job_name max_temp_base_days submit_true seasonal_true fall_spring_true min_lon max_lon min_lat max_lat orb
 ```
 
 where: <br>
@@ -69,6 +69,12 @@ where: <br>
 ```max_temp_base_days``` : maximum temporal baseline for nearest neighbor pairs  <br>
 ```submit_true```: True to submit job; False to only create text file with pair names <br>
 ```seasonal_true``` : True to include year-long interferograms; False to only include nearest neighbor interferograms <br>
+```fall_spring_true``` : True to include fall-spring interferograms; False to only include nearest neighbor interferograms <br>
+```min_lon``` : Minimum longitude for search area <br>
+```max_lon``` : Maximum longitude for search area <br>
+```min_lat``` : Minimum latitude for search area <br>
+```max_lat``` : Maximum latitude for search area <br>
+```orb``` : Relative orbit number <br>
  <br>
 
 
