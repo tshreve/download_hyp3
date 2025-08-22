@@ -9,33 +9,46 @@ import pandas as pd
 from dateutil.parser import parse as parse_date
 from collections import defaultdict
 
+asf.constants.INTERNAL.CMR_TIMEOUT = 60 * 60  # Set CMR timeout to 1 hour
+
 def parse_arguments():
     """Parse command line arguments
     job_name: Name of the job to submit
     max_temp_base_days: Maximum temporal baseline in days for pairs
     submit_true: Whether to submit the jobs (recommend setting False, then check pairs in output text file) (True/False)
     seasonal_true: Whether to include seasonal pairs (True/False)
+    fall_spring_true: Whether to include fall-spring pairs (True/False)
+    min_lon: Minimum longitude for search area
+    max_lon: Maximum longitude for search area
+    min_lat: Minimum latitude for search area
+    max_lat: Maximum latitude for search area
+    orb: Relative orbit number
     """
-    if len(sys.argv) < 5:
-        print("Usage: submit_multiburst.py job_name max_temp_base_days submit_true seasonal_true")
+    if len(sys.argv) < 10:
+        print("Usage: submit_multiburst.py job_name max_temp_base_days submit_true seasonal_true fall_spring_true min_lon max_lon min_lat max_lat orb")
         sys.exit(1)
     
     return {
         'job_name': sys.argv[1],
         'max_temporal_baseline': int(sys.argv[2]),
         'submit_jobs': sys.argv[3].lower() == 'true',
-        'include_seasonal': sys.argv[4].lower() == 'true'
+        'include_seasonal': sys.argv[4].lower() == 'true',
+        'include_fallspring': sys.argv[5].lower() == 'true',
+        'min_lon': float(sys.argv[6]),
+        'max_lon': float(sys.argv[7]),
+        'min_lat': float(sys.argv[8]),
+        'max_lat': float(sys.argv[9]),
+        'orb': int(sys.argv[10])
     }
 
 # Set stack start and end dates, as well as search parameters
-def search_stacks(stack_start='2014-01-01', stack_end='2025-07-01'):
+def search_stacks(stack_start='2014-01-01', stack_end='2025-07-01', min_lon=None, max_lon=None, min_lat=None, max_lat=None,orb=None):
     """Search for SAR data and create multiple stacks by burstID"""
     # Adjust based on desired search parameters
     options = { 
-        'intersectsWith': 'POLYGON((-114.03957359840292 39.946877789647516, -114.03957359840292 38.74211093116455, -113.58908906074488 38.74211093116455, -113.58908906074488 39.946877789647516, -114.03957359840292 39.946877789647516))',
-        'dataset': 'SLC-BURST',
-        'flightDirection': 'Descending',
-        'relativeOrbit': 100,
+  	    'intersectsWith': f'POLYGON(({min_lon} {min_lat}, {max_lon} {min_lat}, {max_lon} {max_lat}, {min_lon} {max_lat}, {min_lon} {min_lat}))',
+	    'dataset': 'SLC-BURST',
+        'relativeOrbit': orb,
         'maxResults': 10000
     }
 
@@ -86,12 +99,12 @@ def search_stacks(stack_start='2014-01-01', stack_end='2025-07-01'):
     
     return stacks
 
-def generate_pairs_for_all_stacks(stacks, max_baseline, include_seasonal=False):
+def generate_pairs_for_all_stacks(stacks, max_baseline, include_seasonal=False, include_fallspring=False):
     """Generate pairs for each stack and group by acquisition dates"""
     # First generate all pairs for each stack
     all_pairs = []
     for burst_id, stack in stacks.items():
-        pairs = generate_pairs(stack, max_baseline, include_seasonal)
+        pairs = generate_pairs(stack, max_baseline, include_seasonal, include_fallspring)
         for ref, sec in pairs:
             # Get acquisition dates and granule IDs
             ref_date = stack.loc[stack.sceneName == ref, 'acquisitionDate'].iloc[0]
@@ -106,10 +119,10 @@ def generate_pairs_for_all_stacks(stacks, max_baseline, include_seasonal=False):
     
     return date_grouped_pairs
 
-def generate_pairs(stack, max_baseline, include_seasonal=False):
+def generate_pairs(stack, max_baseline, include_seasonal=False, include_fallspring=False):
     """Generate pairs based on temporal baseline criteria"""
     sbas_pairs = set()
-    
+    print(include_fallspring)
     # Standard pairs within max_baseline
     for reference, rt in stack.loc[::-1, ['sceneName', 'temporalBaseline']].itertuples(index=False):
         secondaries = stack.loc[
@@ -131,13 +144,25 @@ def generate_pairs(stack, max_baseline, include_seasonal=False):
                 ]
                 for secondary in secondaries.sceneName:
                     sbas_pairs.add((reference, secondary))
-    
+                    
+    # Add fall-spring pairs if requested
+    if include_fallspring:
+        for date, reference, rt in stack.loc[::-1, ['startTime', 'sceneName', 'temporalBaseline']].itertuples(index=False):
+            if date.month < 12 and date.month > 8:  # Fall scenes
+                secondaries = stack.loc[
+                    (stack.sceneName != reference) &
+                    (stack.temporalBaseline - rt <= (max_baseline + 190)) &
+                    (stack.temporalBaseline - rt > 190)
+                ]
+                for secondary in secondaries.sceneName:
+                    sbas_pairs.add((reference, secondary))
+      
     return sorted(sbas_pairs)
 
 def submit_multi_burst_jobs(date_grouped_pairs, job_name_prefix):
     """Submit InSAR jobs grouped by acquisition date pairs"""
     try:
-        hyp3 = sdk.HyP3(prompt=True)
+        hyp3 = sdk.HyP3(prompt="password")
         print(f"Submitting job {job_name_prefix}")
 
         job_ids = []
@@ -173,13 +198,14 @@ def main():
     args = parse_arguments()
     
     # Search for stacks by burst ID
-    stacks = search_stacks()
-    
+    stacks = search_stacks(min_lon = args['min_lon'], max_lon = args['max_lon'], min_lat = args['min_lat'], max_lat = args['max_lat'], orb = args['orb'])
+
     # Generate pairs across all stacks and group by date
     date_grouped_pairs = generate_pairs_for_all_stacks(
         stacks, 
         args['max_temporal_baseline'], 
-        args['include_seasonal']
+        args['include_seasonal'],
+        args['include_fallspring']
     )
     
     # Save all pairs to file
